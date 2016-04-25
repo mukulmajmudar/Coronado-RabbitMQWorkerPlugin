@@ -23,10 +23,10 @@ class Config(WorkerPlugin.Config, RabbitMQPlugin.Config):
 
 
     def _getRmqWorkerRequestQName(self):
-        return 'rmqWorkerRequestQ'
+        return 'workerRequestQueue'
 
     def _getRmqWorkerResponseQName(self):
-        return 'rmqWorkerResponseQ'
+        return 'workerResponseQueue'
 
 
 class AppPlugin(WorkerPlugin.AppPlugin):
