@@ -2,32 +2,26 @@ import time
 import logging
 
 import tornado.concurrent
+from tornado.platform.asyncio import to_asyncio_future
 import WorkerPlugin
-import RabbitMQPlugin
 
 from .SimpleClient import SimpleClient
 
 logger = logging.getLogger(__name__)
 
-# pylint: disable=abstract-method
-class Config(WorkerPlugin.Config, RabbitMQPlugin.Config):
-
-    def __init__(self, keys=None): 
-        if keys is None:
-            keys = []
-        super().__init__(
-        [
-            'rmqWorkerRequestQName',
-            'rmqWorkerResponseQName'
-        ] + keys)
-
-
-    def _getRmqWorkerRequestQName(self):
-        return 'workerRequestQueue'
-
-    def _getRmqWorkerResponseQName(self):
-        return 'workerResponseQueue'
-
+config = WorkerPlugin.config
+config.update(
+{
+    'rmqHost': 'localhost',
+    'rmqPort': 5672,
+    'rmqVirtualHost': '/',
+    'rmqUsername': 'guest',
+    'rmqPassword': 'guest',
+    'rmqEnableSSL': False,
+    'rmqSSLOptions': None,
+    'rmqWorkerRequestQName': 'workerRequestQueue',
+    'rmqWorkerResponseQName': 'workerResponseQueue'
+})
 
 class AppPlugin(WorkerPlugin.AppPlugin):
 
@@ -67,31 +61,11 @@ class Producer(WorkerPlugin.Producer):
         return self._client.startConsuming(self._responseQueueName)
 
 
-    def destroy(self):
-        future = tornado.concurrent.Future()
-        def onStopped(stopFuture):
-            try:
-                stopFuture.result()
-            finally:
-                def disconnect():
-                    disconnFuture = self._client.disconnect()
-                    def onDisconnected(disconnFuture):
-                        try:
-                            disconnFuture.result()
-                        finally:
-                            future.set_result(None)
-
-                    self._ioloop.add_future(disconnFuture, onDisconnected)
-
-                # Disconnect after a delay
-                logger.info('Producer will be stopped in %d seconds',
-                        self._shutdownDelay)
-                self._ioloop.add_timeout(time.time() + self._shutdownDelay,
-                        disconnect)
-
-        self._ioloop.add_future(self._client.stopConsuming(), onStopped)
-
-        return future
+    async def destroy(self):
+        try:
+            await to_asyncio_future(self._client.stopConsuming())
+        finally:
+            await to_asyncio_future(self._client.disconnect())
 
 
     # pylint: disable=too-many-arguments
@@ -147,31 +121,11 @@ class Consumer(WorkerPlugin.Consumer):
         return self._client.startConsuming(self._requestQueueName)
 
 
-    def destroy(self):
-        future = tornado.concurrent.Future()
-        def onStopped(stopFuture):
-            try:
-                stopFuture.result()
-            finally:
-                def disconnect():
-                    disconnFuture = self._client.disconnect()
-                    def onDisconnected(disconnFuture):
-                        try:
-                            disconnFuture.result()
-                        finally:
-                            future.set_result(None)
-
-                    self._ioloop.add_future(disconnFuture, onDisconnected)
-
-                # Disconnect after a delay
-                logger.info('Consumer will be stopped in %d seconds',
-                        self._shutdownDelay)
-                self._ioloop.add_timeout(time.time() + self._shutdownDelay,
-                        disconnect)
-
-        self._ioloop.add_future(self._client.stopConsuming(), onStopped)
-
-        return future
+    async def destroy(self):
+        try:
+            await to_asyncio_future(self._client.stopConsuming())
+        finally:
+            await to_asyncio_future(self._client.disconnect())
 
 
     # pylint: disable=too-many-arguments

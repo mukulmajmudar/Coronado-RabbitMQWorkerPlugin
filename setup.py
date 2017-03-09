@@ -8,8 +8,7 @@ setup(
     [
         'Coronado',
         'pika',
-        'WorkerPlugin',
-        'RabbitMQPlugin'
+        'WorkerPlugin'
     ],
     author='Mukul Majmudar',
     author_email='mukul@curecompanion.com',
