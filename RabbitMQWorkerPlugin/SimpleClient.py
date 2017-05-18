@@ -1,6 +1,7 @@
 from contextlib import closing
 import logging
 import functools
+import time
 
 import pika
 from pika.adapters import TornadoConnection
@@ -101,14 +102,29 @@ class SimpleClient(object):
     def setup(self, *queueNames):
         # Use a blocking connection to declare the app's queues
         params = pika.ConnectionParameters(host=self._host, port=self._port)
-        with closing(pika.BlockingConnection(params)) as connection:
-            with closing(connection.channel()) as channel:
-                # Declare durable queues; we will use the
-                # default exchange for simple tag-based routing
-                for queueName in queueNames:
-                    logger.info('Declaring RabbitMQ queue %s', queueName)
-                    channel.queue_declare(queue=queueName, durable=True)
-                    logger.info('Declared RabbitMQ queue %s', queueName)
+        attempt = 0
+        while True:
+            try:
+                attempt += 1
+                with closing(pika.BlockingConnection(params)) as connection:
+                    with closing(connection.channel()) as channel:
+                        # Declare durable queues; we will use the
+                        # default exchange for simple tag-based routing
+                        for queueName in queueNames:
+                            logger.info('Declaring RabbitMQ queue %s', queueName)
+                            channel.queue_declare(queue=queueName, durable=True)
+                            logger.info('Declared RabbitMQ queue %s', queueName)
+            except pika.exceptions.ConnectionClosed:
+                if attempt == 10:
+                    raise
+
+                logger.info('Could not connect to RabbitMQ, will ' +
+                    'try again after 5 seconds...')
+                time.sleep(5)
+            else:
+                logger.info('Connected to RabbitMQ successfully.')
+                break
+                 
 
 
     # pylint: disable=too-many-arguments
