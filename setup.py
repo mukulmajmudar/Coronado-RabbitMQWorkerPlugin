@@ -7,7 +7,7 @@ setup(
     install_requires=
     [
         'Coronado',
-        'pika',
+        'pika==0.12.0',
         'WorkerPlugin'
     ],
     author='Mukul Majmudar',
